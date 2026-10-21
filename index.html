@@ -1,0 +1,1782 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>寻宝之旅 · JavaScript 异步探险</title>
+<style>
+  :root {
+    --paper: #f4ecdd;
+    --card: #fffdf8;
+    --ink: #2f2a24;
+    --ink-2: #6d6255;
+    --ink-3: #a2958a;
+    --line: #e7dbc5;
+    --brand: #c2410c;
+    --brand-soft: #fbe6d9;
+    --gold: #c99a2e;
+    --teal: #0f766e;
+    --shadow-sm: 0 2px 8px rgba(96, 70, 38, .07);
+    --shadow: 0 14px 40px rgba(96, 70, 38, .13);
+    --radius: 18px;
+    --serif: "Noto Serif SC", "Songti SC", "SimSun", "Source Han Serif SC", serif;
+    --sans: "PingFang SC", "Microsoft YaHei", "Hiragino Sans GB", system-ui, -apple-system, sans-serif;
+    --mono: "JetBrains Mono", "Cascadia Code", "Consolas", "SFMono-Regular", monospace;
+  }
+
+  * { box-sizing: border-box; }
+
+  html { height: 100%; }
+
+  body { min-height: 100%; display: flex; }
+
+  body {
+    margin: 0;
+    font-family: var(--sans);
+    color: var(--ink);
+    background:
+      radial-gradient(1100px 520px at 12% -8%, #fffaf1 0%, rgba(255, 250, 241, 0) 60%),
+      radial-gradient(900px 500px at 92% 2%, #fbf1e0 0%, rgba(251, 241, 224, 0) 62%),
+      var(--paper);
+    -webkit-font-smoothing: antialiased;
+  }
+
+  body::before {
+    content: "";
+    position: fixed;
+    inset: 0;
+    pointer-events: none;
+    opacity: .5;
+    background-image:
+      repeating-linear-gradient(0deg, rgba(150, 120, 80, .035) 0 1px, transparent 1px 3px),
+      repeating-linear-gradient(90deg, rgba(150, 120, 80, .025) 0 1px, transparent 1px 4px);
+    z-index: 0;
+  }
+
+  .app {
+    position: relative;
+    z-index: 1;
+    width: min(100%, calc((100vh - 208px) * 1.7857 + 52px));
+    max-width: 1240px;
+    margin: auto;
+    padding: 26px 26px 34px;
+  }
+
+  /* ---------------- 顶栏 ---------------- */
+  .topbar {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 20px;
+    flex-wrap: wrap;
+    margin-bottom: 18px;
+  }
+
+  .brand { display: flex; align-items: center; gap: 14px; }
+
+  .seal {
+    width: 46px; height: 46px;
+    border-radius: 12px;
+    display: grid; place-items: center;
+    font-family: var(--serif);
+    font-size: 22px;
+    color: #fff8ec;
+    background: linear-gradient(145deg, #d4531a, #a6360a);
+    box-shadow: 0 8px 18px rgba(164, 54, 10, .28), inset 0 1px 0 rgba(255,255,255,.35);
+    letter-spacing: 0;
+  }
+
+  h1 {
+    margin: 0;
+    font-family: var(--serif);
+    font-size: 23px;
+    font-weight: 700;
+    letter-spacing: .5px;
+    line-height: 1.3;
+  }
+
+  h1 .dot { color: var(--gold); margin: 0 2px; }
+
+  .sub {
+    margin: 3px 0 0;
+    font-size: 12.5px;
+    color: var(--ink-3);
+    letter-spacing: .6px;
+  }
+
+  .controls { display: flex; align-items: center; gap: 10px; }
+
+  .seg {
+    display: flex;
+    padding: 3px;
+    background: rgba(255, 253, 248, .8);
+    border: 1px solid var(--line);
+    border-radius: 11px;
+    box-shadow: var(--shadow-sm);
+  }
+
+  .seg button {
+    border: 0;
+    background: transparent;
+    font-family: var(--sans);
+    font-size: 12.5px;
+    color: var(--ink-2);
+    padding: 6px 11px;
+    border-radius: 8px;
+    cursor: pointer;
+    transition: all .18s ease;
+  }
+
+  .seg button:hover { color: var(--brand); }
+
+  .seg button.on {
+    background: #fff;
+    color: var(--brand);
+    font-weight: 600;
+    box-shadow: 0 1px 4px rgba(96, 70, 38, .14);
+  }
+
+  .btn {
+    font-family: var(--sans);
+    font-size: 13.5px;
+    font-weight: 600;
+    letter-spacing: .4px;
+    padding: 9px 18px;
+    border-radius: 11px;
+    cursor: pointer;
+    transition: transform .16s ease, box-shadow .2s ease, background .2s ease, color .2s ease;
+    border: 1px solid transparent;
+  }
+
+  .btn.primary {
+    color: #fff9f1;
+    background: linear-gradient(145deg, #d4541c, #a8380c);
+    box-shadow: 0 8px 20px rgba(164, 54, 10, .26);
+  }
+
+  .btn.primary:hover:not(:disabled) { transform: translateY(-1px); box-shadow: 0 11px 24px rgba(164, 54, 10, .3); }
+  .btn.primary:active:not(:disabled) { transform: translateY(0); }
+  .btn.primary:disabled { opacity: .55; cursor: not-allowed; box-shadow: none; }
+
+  .btn.ghost {
+    background: rgba(255, 253, 248, .85);
+    border-color: var(--line);
+    color: var(--ink-2);
+    box-shadow: var(--shadow-sm);
+  }
+
+  .btn.ghost:hover { color: var(--brand); border-color: #e0c9ad; }
+
+  /* ---------------- 布局 ---------------- */
+  .stage-wrap {
+    max-width: 1180px;
+    margin: 0 auto;
+  }
+
+  .stage-actions {
+    display: flex;
+    justify-content: center;
+    margin-top: 22px;
+  }
+
+  .btn.lg {
+    font-size: 15px;
+    padding: 13px 46px;
+    border-radius: 13px;
+    letter-spacing: 3px;
+  }
+
+  /* ---------------- 舞台 ---------------- */
+  .stage {
+    position: relative;
+    border-radius: var(--radius);
+    overflow: hidden;
+    background: #f8eeda;
+    border: 1px solid #e3d3b8;
+    box-shadow: var(--shadow), inset 0 0 0 1px rgba(255, 255, 255, .6);
+    height: min(660px, calc(100vh - 208px));
+    width: auto;
+    max-width: 100%;
+    aspect-ratio: 1000 / 560;
+    margin: 0 auto;
+    isolation: isolate;
+  }
+
+  .stage::after {
+    content: "";
+    position: absolute;
+    inset: 9px;
+    border: 1px dashed rgba(140, 105, 62, .28);
+    border-radius: 12px;
+    pointer-events: none;
+  }
+
+  #scene { display: block; width: 100%; height: 100%; }
+
+  .stage.shake { animation: shake .42s cubic-bezier(.36, .07, .19, .97); }
+
+  @keyframes shake {
+    10%, 90% { transform: translate(-2px, 0); }
+    20%, 80% { transform: translate(4px, -1px); }
+    30%, 50%, 70% { transform: translate(-6px, 1px); }
+    40%, 60% { transform: translate(6px, 0); }
+  }
+
+  /* 顶部进度 */
+  .stage-top {
+    position: absolute;
+    top: 0; left: 0; right: 0;
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 16px 20px 0;
+    z-index: 3;
+  }
+
+  .progress {
+    flex: 1;
+    height: 4px;
+    border-radius: 999px;
+    background: rgba(160, 128, 88, .18);
+    overflow: hidden;
+  }
+
+  .progress-fill {
+    height: 100%;
+    width: 0;
+    border-radius: 999px;
+    background: linear-gradient(90deg, #e8a44a, #c2410c);
+    transition: width .55s cubic-bezier(.4, 0, .2, 1);
+  }
+
+  .status {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    font-size: 11.5px;
+    color: #7c6a53;
+    background: rgba(255, 253, 248, .82);
+    border: 1px solid rgba(200, 175, 140, .5);
+    padding: 4px 10px;
+    border-radius: 999px;
+    backdrop-filter: blur(6px);
+    white-space: nowrap;
+  }
+
+  .status i {
+    width: 6px; height: 6px; border-radius: 50%;
+    background: #b7a892;
+    display: inline-block;
+  }
+
+  .status.live i {
+    background: #16a34a;
+    box-shadow: 0 0 0 0 rgba(22, 163, 74, .5);
+    animation: ping 1.5s infinite;
+  }
+
+  @keyframes ping {
+    0% { box-shadow: 0 0 0 0 rgba(22, 163, 74, .45); }
+    70% { box-shadow: 0 0 0 7px rgba(22, 163, 74, 0); }
+    100% { box-shadow: 0 0 0 0 rgba(22, 163, 74, 0); }
+  }
+
+  /* 说明卡片 */
+  .caption {
+    position: absolute;
+    left: 22px;
+    top: 52px;
+    width: min(430px, 56%);
+    padding: 14px 16px 15px;
+    border-radius: 14px;
+    background: rgba(255, 253, 248, .9);
+    border: 1px solid rgba(206, 180, 142, .55);
+    box-shadow: 0 10px 26px rgba(96, 70, 38, .13);
+    backdrop-filter: blur(8px);
+    z-index: 3;
+    transition: opacity .35s ease, transform .35s ease;
+  }
+
+  .cap-head {
+    display: flex;
+    align-items: center;
+    gap: 9px;
+    margin-bottom: 7px;
+  }
+
+  .cap-index {
+    font-size: 10.5px;
+    letter-spacing: .8px;
+    color: #a8683a;
+    background: #fbe9d9;
+    border: 1px solid #f0d3ba;
+    border-radius: 6px;
+    padding: 2px 7px;
+    white-space: nowrap;
+  }
+
+  .cap-title {
+    font-family: var(--serif);
+    font-size: 15.5px;
+    font-weight: 700;
+    color: #3a2d20;
+    letter-spacing: .4px;
+  }
+
+  .cap-text {
+    margin: 0;
+    font-size: 13px;
+    line-height: 1.72;
+    color: #6b5a47;
+    min-height: 44px;
+  }
+
+  .cap-text::after {
+    content: "";
+    display: inline-block;
+    width: 2px; height: 13px;
+    margin-left: 2px;
+    vertical-align: -2px;
+    background: var(--brand);
+    opacity: 0;
+  }
+
+  .cap-text.typing::after { opacity: 1; animation: caret .8s steps(1) infinite; }
+
+  @keyframes caret { 50% { opacity: 0; } }
+
+  /* 罗盘 */
+  .compass {
+    position: absolute;
+    right: 22px;
+    top: 46px;
+    width: 54px; height: 54px;
+    opacity: .68;
+    z-index: 2;
+    pointer-events: none;
+  }
+
+  /* 结算层 */
+  .finale {
+    position: absolute;
+    inset: 0;
+    display: grid;
+    place-items: center;
+    background: rgba(255, 250, 240, .58);
+    backdrop-filter: blur(5px);
+    opacity: 0;
+    visibility: hidden;
+    transition: opacity .5s ease, visibility .5s;
+    z-index: 6;
+  }
+
+  .finale.show { opacity: 1; visibility: visible; }
+
+  .finale-card {
+    width: min(468px, 90%);
+    text-align: center;
+    padding: 26px 26px 24px;
+    border-radius: 20px;
+    background: rgba(255, 253, 247, .97);
+    border: 1px solid #e8d6ba;
+    box-shadow: 0 22px 60px rgba(96, 70, 38, .22);
+    transform: translateY(14px) scale(.96);
+    transition: transform .5s cubic-bezier(.34, 1.4, .64, 1);
+  }
+
+  .finale.show .finale-card { transform: translateY(0) scale(1); }
+
+  .finale-badge {
+    display: inline-block;
+    font-size: 10.5px;
+    letter-spacing: 2px;
+    color: #946312;
+    background: linear-gradient(180deg, #fdf1d3, #f8e2b4);
+    border: 1px solid #edd3a0;
+    border-radius: 999px;
+    padding: 3px 12px;
+    margin-bottom: 10px;
+  }
+
+  .finale-card h2 {
+    margin: 0 0 8px;
+    font-family: var(--serif);
+    font-size: 26px;
+    letter-spacing: 2px;
+    color: #3a2a18;
+  }
+
+  .finale-card p {
+    margin: 0 0 14px;
+    font-size: 12.5px;
+    line-height: 1.75;
+    color: #6b5a47;
+  }
+
+  .finale-stats {
+    display: flex;
+    justify-content: center;
+    gap: 10px;
+    margin-bottom: 18px;
+  }
+
+  .stat {
+    flex: 1;
+    padding: 9px 6px;
+    border-radius: 11px;
+    background: #fbf5ea;
+    border: 1px solid #efe2cc;
+  }
+
+  .stat b {
+    display: block;
+    font-size: 17px;
+    font-family: var(--serif);
+    color: var(--brand);
+    line-height: 1.3;
+  }
+
+  .stat span { font-size: 10.5px; color: var(--ink-3); letter-spacing: .5px; }
+
+  /* ---------------- SVG 动画 ---------------- */
+  .node-ring {
+    fill: rgba(255, 253, 248, .95);
+    stroke: #cdb392;
+    stroke-width: 2;
+    transition: stroke .3s, fill .3s;
+  }
+
+  .node.is-active .node-ring {
+    stroke: var(--brand);
+    animation: nodePulse 1.8s infinite;
+  }
+
+  @keyframes nodePulse {
+    0% { stroke-width: 2; }
+    50% { stroke-width: 4; }
+    100% { stroke-width: 2; }
+  }
+
+  .node.is-done .node-ring { fill: #f3faf6; stroke: #2f9e6f; }
+
+  .node-num {
+    font-family: var(--sans);
+    font-size: 12px;
+    font-weight: 700;
+    fill: #9a8264;
+    text-anchor: middle;
+    dominant-baseline: central;
+    transition: fill .3s;
+  }
+
+  .node.is-active .node-num { fill: var(--brand); }
+  .node.is-done .node-num { fill: #2f9e6f; }
+
+  .node-label {
+    font-family: var(--sans);
+    font-size: 11px;
+    fill: #7d6a53;
+    text-anchor: middle;
+    opacity: 0;
+    transition: opacity .35s ease;
+  }
+
+  .node.is-active .node-label,
+  .node.is-done .node-label { opacity: 1; }
+
+  .node-label-bg {
+    fill: rgba(255, 253, 248, .92);
+    stroke: rgba(205, 179, 146, .8);
+    stroke-width: 1;
+    opacity: 0;
+    transition: opacity .35s ease;
+  }
+
+  .node.is-active .node-label-bg,
+  .node.is-done .node-label-bg { opacity: 1; }
+
+  .torch .flame,
+  .torch .flame-glow { opacity: 0; transition: opacity .45s ease; }
+
+  .torch.lit .flame,
+  .torch.lit .flame-glow { opacity: 1; }
+
+  .torch.lit .flame {
+    transform-box: fill-box;
+    transform-origin: 50% 100%;
+    animation: flicker 1.1s ease-in-out infinite;
+  }
+
+  @keyframes flicker {
+    0%, 100% { transform: scale(1, 1); }
+    35% { transform: scale(.93, 1.12); }
+    70% { transform: scale(1.06, .95); }
+  }
+
+  .fog ellipse {
+    animation: fogDrift 9s ease-in-out infinite;
+    transform-box: fill-box;
+    transform-origin: center;
+  }
+
+  .fog ellipse:nth-child(2) { animation-duration: 11s; animation-delay: -3s; }
+  .fog ellipse:nth-child(3) { animation-duration: 13s; animation-delay: -6s; }
+
+  @keyframes fogDrift {
+    0%, 100% { transform: translateX(-16px); opacity: .5; }
+    50% { transform: translateX(16px); opacity: .78; }
+  }
+
+  .firefly { animation: firefly 3.4s ease-in-out infinite; }
+  .firefly:nth-child(2n) { animation-delay: -1.2s; animation-duration: 4.1s; }
+  .firefly:nth-child(3n) { animation-delay: -2.3s; animation-duration: 3s; }
+
+  @keyframes firefly {
+    0%, 100% { opacity: .18; }
+    50% { opacity: 1; }
+  }
+
+  #chestLid {
+    transform-box: fill-box;
+    transform-origin: 50% 100%;
+    transition: transform .85s cubic-bezier(.34, 1.5, .64, 1);
+  }
+
+  #chest.open #chestLid { transform: rotate(-112deg); }
+  #chestGlow { opacity: 0; transition: opacity .6s ease; }
+  #chest.open #chestGlow { opacity: 1; }
+
+  #guard { transition: opacity .5s ease, transform .5s ease; transform-box: fill-box; }
+  #guard.alarm { animation: guardShake .5s ease-in-out 2; }
+  @keyframes guardShake {
+    0%, 100% { transform: translateX(0); }
+    25% { transform: translateX(-4px); }
+    75% { transform: translateX(4px); }
+  }
+
+  /* ---------------- 响应式 ---------------- */
+  @media (max-width: 1080px) {
+    .app { padding: 18px 16px 26px; }
+  }
+
+  @media (max-width: 700px) {
+    h1 { font-size: 15.5px; letter-spacing: 0; }
+    .sub { font-size: 10.5px; }
+    .seal { width: 40px; height: 40px; font-size: 19px; }
+    .caption { width: calc(100% - 28px); left: 14px; top: 42px; padding: 9px 11px 10px; }
+    .cap-title { font-size: 13px; }
+    .cap-text {
+      font-size: 11.5px;
+      min-height: 0;
+      line-height: 1.62;
+      display: -webkit-box;
+      -webkit-line-clamp: 2;
+      -webkit-box-orient: vertical;
+      overflow: hidden;
+    }
+    .compass { display: none; }
+    .app { width: 100%; }
+    .stage { height: auto; width: 100%; aspect-ratio: 4 / 3; }
+    .finale-card h2 { font-size: 22px; }
+  }
+</style>
+</head>
+<body>
+<div class="app">
+
+  <header class="topbar">
+    <div class="brand">
+      <div class="seal">宝</div>
+      <div>
+        <h1>寻宝之旅 <span class="dot">·</span> JavaScript 异步探险</h1>
+        <p class="sub">实验二 &nbsp;|&nbsp; Promise → async / await 可视化演示</p>
+      </div>
+    </div>
+  </header>
+
+  <main class="stage-wrap">
+    <!-- ================= 舞台 ================= -->
+    <section class="stage" id="stage">
+      <svg id="scene" viewBox="0 0 1000 560" preserveAspectRatio="xMidYMid slice" xmlns="http://www.w3.org/2000/svg">
+        <defs>
+          <linearGradient id="sky" x1="0" y1="0" x2="0" y2="1">
+            <stop offset="0%" stop-color="#fffaf1" />
+            <stop offset="42%" stop-color="#f9e8cb" />
+            <stop offset="100%" stop-color="#eed2a6" />
+          </linearGradient>
+
+          <linearGradient id="groundGrad" x1="0" y1="0" x2="0" y2="1">
+            <stop offset="0%" stop-color="#e5ca9f" />
+            <stop offset="100%" stop-color="#cbaa77" />
+          </linearGradient>
+
+          <linearGradient id="floorGrad" x1="0" y1="0" x2="0" y2="1">
+            <stop offset="0%" stop-color="#e3cba6" />
+            <stop offset="100%" stop-color="#cbaa7e" />
+          </linearGradient>
+
+          <linearGradient id="hallWall" x1="0" y1="0" x2="0" y2="1">
+            <stop offset="0%" stop-color="#b0875b" />
+            <stop offset="52%" stop-color="#c9a375" />
+            <stop offset="100%" stop-color="#dcc09a" />
+          </linearGradient>
+
+          <linearGradient id="hallShade" x1="0" y1="0" x2="1" y2="0">
+            <stop offset="0%" stop-color="#5f4128" stop-opacity=".62" />
+            <stop offset="100%" stop-color="#5f4128" stop-opacity="0" />
+          </linearGradient>
+
+          <radialGradient id="glow">
+            <stop offset="0%" stop-color="#fbc85a" stop-opacity=".95" />
+            <stop offset="55%" stop-color="#f7b23f" stop-opacity=".35" />
+            <stop offset="100%" stop-color="#f7b23f" stop-opacity="0" />
+          </radialGradient>
+
+          <radialGradient id="goldBurst">
+            <stop offset="0%" stop-color="#fff3c4" stop-opacity=".95" />
+            <stop offset="100%" stop-color="#f6c945" stop-opacity="0" />
+          </radialGradient>
+
+          <filter id="softBlur" x="-40%" y="-40%" width="180%" height="180%">
+            <feGaussianBlur stdDeviation="9" />
+          </filter>
+
+          <filter id="tinyBlur" x="-40%" y="-40%" width="180%" height="180%">
+            <feGaussianBlur stdDeviation="2.4" />
+          </filter>
+        </defs>
+
+        <!-- 天空 -->
+        <rect x="0" y="0" width="1000" height="560" fill="url(#sky)" />
+
+        <!-- 远景（视差 0.25） -->
+        <g id="camFar">
+          <circle cx="168" cy="118" r="130" fill="url(#glow)" opacity=".45" />
+          <circle cx="168" cy="118" r="42" fill="#fbe3ae" />
+          <circle cx="168" cy="118" r="42" fill="none" stroke="#f0cf8e" stroke-width="1.4" />
+
+          <g fill="#fffbf2" opacity=".9">
+            <ellipse cx="420" cy="92" rx="58" ry="15" />
+            <ellipse cx="458" cy="80" rx="36" ry="14" />
+            <ellipse cx="880" cy="132" rx="66" ry="14" />
+            <ellipse cx="918" cy="122" rx="38" ry="12" />
+            <ellipse cx="1230" cy="86" rx="52" ry="13" />
+            <ellipse cx="1262" cy="78" rx="30" ry="11" />
+          </g>
+
+          <g stroke="#c9a878" stroke-width="1.6" fill="none" opacity=".55" stroke-linecap="round">
+            <path d="M600,150 q9,-7 18,0 q9,-7 18,0" />
+            <path d="M646,164 q7,-6 14,0 q7,-6 14,0" />
+            <path d="M1090,120 q8,-6 16,0 q8,-6 16,0" />
+          </g>
+
+          <path d="M-100,438 L40,312 L168,414 L268,346 L392,438 L520,326 L648,438 L772,356 L896,438 L1032,318 L1170,438 L1290,352 L1430,438 L1600,438 L1600,560 L-100,560 Z"
+                fill="#e8cfa6" />
+          <path d="M40,312 L168,414 M520,326 L648,438 M1032,318 L1170,438"
+                stroke="#dcc199" stroke-width="2" fill="none" />
+        </g>
+
+        <!-- 中景（视差 0.55） -->
+        <g id="camMid">
+          <path d="M-100,472 L120,392 L336,472 L556,406 L756,472 L976,398 L1196,472 L1416,410 L1646,472 L1880,472 L1880,560 L-100,560 Z"
+                fill="#ddc096" />
+
+          <path d="M1478,472 L1552,382 L1626,472 Z" fill="#d6b78c" />
+          <path d="M1600,472 L1656,404 L1712,472 Z" fill="#ddc197" />
+
+          <path d="M-100,484 C 200,458 420,504 700,482 C 980,460 1200,502 1500,482 C 1750,466 1980,494 2160,482 L2160,560 L-100,560 Z"
+                fill="#e4cda6" />
+        </g>
+
+        <!-- 世界层（视差 1.0） -->
+        <g id="camWorld">
+
+          <!-- 地面 -->
+          <path d="M0,488 C 220,472 420,494 640,478 C 860,462 1060,492 1280,476 C 1500,460 1700,494 1900,478 C 2100,464 2270,488 2400,474 L2400,560 L0,560 Z"
+                fill="url(#groundGrad)" />
+          <path d="M0,488 C 220,472 420,494 640,478 C 860,462 1060,492 1280,476 C 1500,460 1700,494 1900,478 C 2100,464 2270,488 2400,474"
+                stroke="#e4cba3" stroke-width="2.5" fill="none" opacity=".9" />
+
+          <!-- 零散石头 -->
+          <g fill="#d3b78e" opacity=".75">
+            <ellipse cx="360" cy="500" rx="14" ry="5" />
+            <ellipse cx="620" cy="512" rx="9" ry="4" />
+            <ellipse cx="960" cy="502" rx="16" ry="5" />
+            <ellipse cx="1450" cy="508" rx="12" ry="4.5" />
+            <ellipse cx="2160" cy="512" rx="15" ry="5" />
+          </g>
+
+          <!-- ============ 地标：图书馆 ============ -->
+          <g id="lm-library">
+            <rect x="60" y="332" width="180" height="146" fill="#d5b083" stroke="#b8915f" stroke-width="2" />
+            <path d="M46,334 L150,284 L254,334 Z" fill="#cfab7c" stroke="#ae8757" stroke-width="2" stroke-linejoin="round" />
+            <circle cx="150" cy="320" r="6.5" fill="#f6e7c9" stroke="#c8a97e" stroke-width="1.4" />
+
+            <g fill="#f3e4c8" stroke="#c9a87c" stroke-width="1.4">
+              <rect x="74" y="350" width="14" height="122" />
+              <rect x="108" y="350" width="14" height="122" />
+              <rect x="178" y="350" width="14" height="122" />
+              <rect x="212" y="350" width="14" height="122" />
+            </g>
+
+            <path d="M134,478 v-54 a16,16 0 0 1 32,0 v54 z" fill="#7b5334" />
+            <path d="M134,478 v-54 a16,16 0 0 1 32,0 v54" fill="none" stroke="#96684a" stroke-width="2" />
+
+            <rect x="90" y="374" width="16" height="24" rx="8" fill="#f8cf80" opacity=".95" />
+            <rect x="194" y="374" width="16" height="24" rx="8" fill="#f8cf80" opacity=".95" />
+
+            <rect x="54" y="478" width="192" height="7" fill="#cbaa80" />
+            <rect x="46" y="485" width="208" height="7" fill="#c09d74" />
+
+            <!-- 旗子 -->
+            <path d="M238,286 v-34" stroke="#9a7550" stroke-width="2.4" stroke-linecap="round" />
+            <path d="M238,252 l30,9 l-30,9 z" fill="#c2410c" opacity=".85" />
+          </g>
+
+          <!-- ============ 地标：解码石桌 ============ -->
+          <g id="lm-desk">
+            <ellipse cx="470" cy="486" rx="52" ry="7" fill="#cdb08a" opacity=".55" />
+            <rect x="428" y="452" width="84" height="9" rx="3" fill="#b58e66" />
+            <rect x="436" y="461" width="8" height="20" fill="#a67f57" />
+            <rect x="496" y="461" width="8" height="20" fill="#a67f57" />
+
+            <rect x="442" y="440" width="50" height="13" rx="6" fill="#fdf6e6" stroke="#dcc7a0" stroke-width="1.2" />
+            <path d="M452,447 h30" stroke="#cdb992" stroke-width="1.2" />
+            <path d="M452,451 h22" stroke="#dcc9a4" stroke-width="1.2" />
+
+            <rect x="512" y="434" width="6" height="19" rx="2" fill="#f5e6c9" />
+            <ellipse cx="515" cy="430" rx="3.2" ry="6" fill="#f8b955" />
+            <circle cx="515" cy="430" r="12" fill="url(#glow)" opacity=".55" />
+          </g>
+
+          <!-- ============ 地标：星象台 ============ -->
+          <g id="lm-observatory">
+            <rect x="768" y="402" width="126" height="78" fill="#d2b189" stroke="#b08a5e" stroke-width="2" />
+            <path d="M756,404 a74,74 0 0 1 148,0 z" fill="#c49c6f" stroke="#a37d52" stroke-width="2" stroke-linejoin="round" />
+            <path d="M770,402 h120" stroke="#a37d52" stroke-width="1.6" />
+            <path d="M820,332 a10,10 0 0 1 20,0 v24 h-20 z" fill="#8a6642" opacity=".8" />
+            <path d="M830,330 v-10" stroke="#a37d52" stroke-width="2" stroke-linecap="round" />
+            <rect x="820" y="436" width="22" height="44" rx="10" fill="#7b5334" />
+
+            <g transform="rotate(-32 886 386)">
+              <rect x="880" y="352" width="11" height="48" rx="4" fill="#6f8f7d" />
+              <rect x="880" y="352" width="11" height="7" rx="3" fill="#587263" />
+            </g>
+            <circle cx="906" cy="362" r="4.6" fill="#587263" />
+
+            <g fill="#e0a93f">
+              <circle cx="900" cy="316" r="2.2" />
+              <circle cx="926" cy="340" r="1.6" />
+              <circle cx="876" cy="330" r="1.4" />
+              <circle cx="938" cy="306" r="1.3" />
+            </g>
+          </g>
+
+          <!-- ============ 地标：迷雾森林 ============ -->
+          <g id="lm-forest">
+            <g>
+              <rect x="1074" y="424" width="11" height="54" fill="#8a6742" />
+              <path d="M1080,336 L1040,418 L1120,418 Z" fill="#5d8a61" />
+              <path d="M1080,372 L1048,440 L1112,440 Z" fill="#6d9b6d" />
+            </g>
+            <g>
+              <rect x="1164" y="440" width="9" height="40" fill="#8a6742" />
+              <path d="M1169,372 L1138,434 L1200,434 Z" fill="#63905f" />
+              <path d="M1169,398 L1144,452 L1194,452 Z" fill="#75a271" />
+            </g>
+            <g>
+              <rect x="1250" y="430" width="10" height="48" fill="#8a6742" />
+              <path d="M1255,350 L1218,424 L1292,424 Z" fill="#5d8a61" />
+              <path d="M1255,384 L1224,448 L1286,448 Z" fill="#6d9b6d" />
+            </g>
+            <g>
+              <rect x="1016" y="446" width="8" height="34" fill="#8a6742" />
+              <path d="M1020,398 L994,450 L1046,450 Z" fill="#75a271" opacity=".85" />
+            </g>
+
+            <g class="firefly" fill="#f7e08a">
+              <circle cx="1108" cy="418" r="2" />
+              <circle cx="1146" cy="398" r="1.6" />
+              <circle cx="1198" cy="428" r="1.8" />
+              <circle cx="1232" cy="404" r="1.5" />
+              <circle cx="1052" cy="430" r="1.4" />
+            </g>
+
+            <g class="fog" filter="url(#softBlur)" fill="#fffdf6">
+              <ellipse cx="1080" cy="452" rx="92" ry="17" opacity=".62" />
+              <ellipse cx="1180" cy="466" rx="104" ry="15" opacity=".55" />
+              <ellipse cx="1250" cy="444" rx="72" ry="13" opacity=".5" />
+            </g>
+          </g>
+
+          <!-- ============ 地标：神庙大门 ============ -->
+          <g id="lm-temple">
+            <rect x="1596" y="332" width="328" height="146" fill="#cea679" stroke="#b08a58" stroke-width="2" />
+            <path d="M1576,334 L1750,238 L1924,334 Z" fill="#c9a273" stroke="#a67f4f" stroke-width="2" stroke-linejoin="round" />
+            <rect x="1588" y="326" width="324" height="15" fill="#c09a6c" />
+            <path d="M1690,300 l60,-34 l60,34 z" fill="#b98f5f" opacity=".6" />
+
+            <g fill="#efdec2" stroke="#c3a173" stroke-width="1.6">
+              <rect x="1614" y="348" width="22" height="130" />
+              <rect x="1678" y="348" width="22" height="130" />
+              <rect x="1800" y="348" width="22" height="130" />
+              <rect x="1864" y="348" width="22" height="130" />
+            </g>
+
+            <path d="M1718,478 v-86 a32,32 0 0 1 64,0 v86 z" fill="#6d4b30" />
+            <path d="M1718,478 v-86 a32,32 0 0 1 64,0 v86" fill="none" stroke="#906a45" stroke-width="3" />
+            <ellipse cx="1750" cy="440" rx="26" ry="36" fill="url(#glow)" opacity=".45" />
+
+            <!-- 通往神殿内部的侧门 -->
+            <path d="M1852,478 v-98 a30,30 0 0 1 60,0 v98 z" fill="#5a3d26" />
+            <path d="M1852,478 v-98 a30,30 0 0 1 60,0 v98" fill="none" stroke="#8a6642" stroke-width="3" />
+            <ellipse cx="1882" cy="446" rx="22" ry="30" fill="url(#glow)" opacity=".35" />
+
+            <!-- 三盏圣火 -->
+            <g class="torch" id="torch-0" transform="translate(1646,398)">
+              <rect x="-3" y="-2" width="6" height="24" rx="2" fill="#8f6a45" />
+              <ellipse cx="0" cy="-10" rx="16" ry="18" fill="url(#glow)" class="flame-glow" />
+              <path class="flame" d="M0,-26 C 9,-13 7,-2 0,1 C -7,-2 -9,-13 0,-26 Z" fill="#f59e0b" />
+            </g>
+            <g class="torch" id="torch-1" transform="translate(1750,352)">
+              <rect x="-3" y="-2" width="6" height="24" rx="2" fill="#8f6a45" />
+              <ellipse cx="0" cy="-10" rx="16" ry="18" fill="url(#glow)" class="flame-glow" />
+              <path class="flame" d="M0,-26 C 9,-13 7,-2 0,1 C -7,-2 -9,-13 0,-26 Z" fill="#f59e0b" />
+            </g>
+            <g class="torch" id="torch-2" transform="translate(1854,398)">
+              <rect x="-3" y="-2" width="6" height="24" rx="2" fill="#8f6a45" />
+              <ellipse cx="0" cy="-10" rx="16" ry="18" fill="url(#glow)" class="flame-glow" />
+              <path class="flame" d="M0,-26 C 9,-13 7,-2 0,1 C -7,-2 -9,-13 0,-26 Z" fill="#f59e0b" />
+            </g>
+          </g>
+
+          <!-- ============ 地标：神庙内部 ============ -->
+          <g id="lm-inside">
+            <!-- 后墙 -->
+            <path d="M1924,472 L1924,240 L2400,240 L2400,472 Z" fill="url(#hallWall)" />
+            <!-- 拱顶压条 -->
+            <path d="M1924,240 h476" fill="none" stroke="#a37f57" stroke-width="5" opacity=".5" />
+            <path d="M1924,290 h476" stroke="#a37f57" stroke-width="2" opacity=".28" />
+
+            <!-- 壁柱 -->
+            <g fill="#e8d3b2">
+              <rect x="1944" y="256" width="30" height="216" />
+              <rect x="2124" y="256" width="30" height="216" />
+              <rect x="2352" y="256" width="30" height="216" />
+            </g>
+            <g fill="#c19b6e" opacity=".55">
+              <rect x="1970" y="256" width="4" height="216" />
+              <rect x="2150" y="256" width="4" height="216" />
+              <rect x="2378" y="256" width="4" height="216" />
+            </g>
+
+            <!-- 壁龛 -->
+            <g fill="#8d6743" opacity=".45">
+              <path d="M2016,472 v-92 a26,26 0 0 1 52,0 v92 z" />
+              <path d="M2200,472 v-92 a26,26 0 0 1 52,0 v92 z" />
+            </g>
+
+            <!-- 吊灯 -->
+            <g>
+              <path d="M2064,240 v22" stroke="#8f6a45" stroke-width="1.8" />
+              <path d="M2052,262 h24 l-6,10 h-12 z" fill="#b08a5e" />
+              <circle cx="2064" cy="274" r="7" fill="#f8cf74" />
+              <circle cx="2064" cy="272" r="24" fill="url(#glow)" opacity=".55" />
+              <path d="M2300,240 v26" stroke="#8f6a45" stroke-width="1.8" />
+              <path d="M2288,266 h24 l-6,10 h-12 z" fill="#b08a5e" />
+              <circle cx="2300" cy="278" r="7" fill="#f8cf74" />
+              <circle cx="2300" cy="276" r="24" fill="url(#glow)" opacity=".55" />
+            </g>
+
+            <!-- 地板 -->
+            <path d="M1924,470 L2400,470 L2400,560 L1924,560 Z" fill="url(#floorGrad)" />
+            <path d="M1924,470 h476" stroke="#b08a5e" stroke-width="2.5" opacity=".55" />
+            <g stroke="#bd996d" stroke-width="1.1" opacity=".4">
+              <path d="M1924,492 h476" />
+              <path d="M1924,520 h476" />
+              <path d="M1924,552 h476" />
+            </g>
+            <g stroke="#bd996d" stroke-width="1.1" opacity=".22">
+              <path d="M2000,470 L1950,560" />
+              <path d="M2140,470 L2120,560" />
+              <path d="M2280,470 L2320,560" />
+            </g>
+
+            <!-- 门洞阴影 -->
+            <rect x="1924" y="240" width="44" height="230" fill="url(#hallShade)" />
+            <rect x="1924" y="240" width="10" height="230" fill="#8a6642" opacity=".5" />
+
+            <!-- 守卫 -->
+            <g id="guard">
+              <ellipse cx="2115" cy="470" rx="30" ry="7" fill="#6b4a2f" opacity=".22" />
+              <path d="M2100,468 v-60 a15,15 0 0 1 30,0 v60 z" fill="#8d6c4a" />
+              <rect x="2100" y="428" width="30" height="9" fill="#b08a5e" />
+              <circle cx="2115" cy="392" r="13" fill="#a07c56" />
+              <path d="M2101,390 a14,14 0 0 1 28,0 z" fill="#7a5a3a" />
+              <path d="M2115,378 v-15" stroke="#c2410c" stroke-width="4.5" stroke-linecap="round" />
+              <rect x="2146" y="356" width="4.5" height="112" rx="2" fill="#7a5a3a" />
+              <path d="M2148,356 l-7,14 l14,0 z" fill="#cbb48a" />
+              <ellipse cx="2097" cy="420" rx="9" ry="14" fill="#a98456" stroke="#8a6b46" stroke-width="1.5" />
+            </g>
+
+            <!-- 宝箱 -->
+            <g id="chest" transform="translate(2270,470)">
+              <ellipse cx="0" cy="1" rx="42" ry="8" fill="#6b4a2f" opacity=".2" />
+              <circle cx="0" cy="-24" r="66" fill="url(#goldBurst)" id="chestGlow" />
+              <rect x="-40" y="-8" width="80" height="10" rx="2" fill="#bb9a6f" />
+              <rect x="-32" y="-38" width="64" height="30" rx="3" fill="#ab7442" stroke="#7c4c26" stroke-width="2" />
+              <rect x="-32" y="-38" width="64" height="7" fill="#c98d4e" />
+              <rect x="-7" y="-32" width="14" height="15" rx="2" fill="#f0c14b" stroke="#b98f2c" stroke-width="1.2" />
+              <g id="chestLid">
+                <path d="M-34,-38 a34,20 0 0 1 68,0 z" fill="#b87b45" stroke="#7c4c26" stroke-width="2" stroke-linejoin="round" />
+                <path d="M-34,-38 h68" stroke="#7c4c26" stroke-width="1.6" />
+              </g>
+            </g>
+          </g>
+
+          <!-- 路线 -->
+          <path id="trailBase" fill="none" stroke="#c3a377" stroke-width="4.5"
+                stroke-linecap="round" stroke-dasharray="1 11" opacity=".85" />
+          <path id="trailDone" fill="none" stroke="#c2410c" stroke-width="4" stroke-linecap="round" opacity=".92" />
+
+          <!-- 站点（JS 生成） -->
+          <g id="nodes"></g>
+
+          <!-- 粒子层 -->
+          <g id="fx"></g>
+
+          <!-- 探险家 -->
+          <g id="hero" transform="translate(140,474)">
+            <circle cx="0" cy="-26" r="34" fill="url(#glow)" opacity=".28" />
+            <ellipse cx="0" cy="1" rx="16" ry="4.5" fill="#3b2a17" opacity=".18" />
+            <g id="heroBody">
+              <path d="M-9,-4 C-11,-15 -9,-21 -6,-25 L6,-25 C9,-21 11,-15 9,-4 Z" fill="#c2410c" />
+              <path d="M-6,-25 L0,-31 L6,-25 Z" fill="#9a3412" />
+              <circle cx="0" cy="-34" r="7.4" fill="#f3d4b0" />
+              <path d="M-9,-37 a9,9 0 0 1 18,0 z" fill="#7c5233" />
+              <rect x="-5.5" y="-46" width="11" height="9" rx="3" fill="#7c5233" />
+              <path d="M8,-22 L16,-40" stroke="#8b6a45" stroke-width="2.6" stroke-linecap="round" />
+              <circle cx="16.5" cy="-41" r="3" fill="#f7c948" />
+            </g>
+          </g>
+        </g>
+      </svg>
+
+      <!-- 覆盖层 -->
+      <div class="stage-top">
+        <div class="progress"><div class="progress-fill" id="progressFill"></div></div>
+        <div class="status" id="status"><i></i><span id="statusText">待命中</span></div>
+      </div>
+
+      <svg class="compass" viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg">
+        <circle cx="50" cy="50" r="34" fill="none" stroke="#b99a72" stroke-width="1.2" stroke-dasharray="2 4" />
+        <circle cx="50" cy="50" r="26" fill="none" stroke="#c8ad89" stroke-width="1" />
+        <path d="M50,20 L56,50 L50,80 L44,50 Z" fill="#c2410c" opacity=".78" />
+        <path d="M20,50 L50,44 L80,50 L50,56 Z" fill="#a98a63" opacity=".55" />
+        <text x="50" y="15" text-anchor="middle" font-size="9" fill="#9c7f5a" font-family="serif">N</text>
+      </svg>
+
+      <div class="caption" id="caption">
+        <div class="cap-head">
+          <span class="cap-index" id="capIndex">准备出发</span>
+          <span class="cap-title" id="capTitle">一张泛黄的地图</span>
+        </div>
+        <p class="cap-text" id="capText">点击下方「开始寻宝」，跟随小探险家踏上这段异步之旅。</p>
+      </div>
+
+      <div class="finale" id="finale">
+        <div class="finale-card">
+          <div class="finale-badge">TREASURE FOUND</div>
+          <h2>寻宝成功</h2>
+          <p id="finaleText">恭喜！你找到了传说中的宝藏——一枚会发光的「异步之心」。</p>
+          <div class="finale-stats">
+            <div class="stat"><b id="statTime">—</b><span>总耗时</span></div>
+            <div class="stat"><b id="statRetry">—</b><span>失败重试</span></div>
+            <div class="stat"><b id="statAwait">7</b><span>次 await</span></div>
+          </div>
+          <button class="btn primary" id="againBtn">再寻一次</button>
+        </div>
+      </div>
+    </section>
+
+  </main>
+
+  <div class="stage-actions">
+    <button class="btn primary lg" id="startBtn">开始寻宝</button>
+  </div>
+</div>
+
+<script>
+(function () {
+  'use strict';
+
+  var NS = 'http://www.w3.org/2000/svg';
+  var $ = function (sel, root) { return (root || document).querySelector(sel); };
+
+  // ===================================================================
+  // 0. 工具
+  // ===================================================================
+  function clamp(v, min, max) { return Math.min(max, Math.max(min, v)); }
+  function easeInOut(t) { return t < 0.5 ? 2 * t * t : 1 - Math.pow(-2 * t + 2, 2) / 2; }
+  function pad(n) { return n < 10 ? '0' + n : '' + n; }
+  function nowTime() {
+    var d = new Date();
+    return pad(d.getHours()) + ':' + pad(d.getMinutes()) + ':' + pad(d.getSeconds());
+  }
+  function AbortError() { this.name = 'Abort'; this.message = '任务已重置'; }
+  AbortError.prototype = Object.create(Error.prototype);
+
+  // ===================================================================
+  // 1. 异步 API —— 与原版 TreasureMap 保持一致，并扩展新情节
+  // ===================================================================
+  var TreasureMap = {
+    getInitialClue: function () {
+      return delay(1000).then(function () {
+        return '在古老的图书馆里找到了第一个线索：一张残破的羊皮卷。';
+      });
+    },
+
+    decodeAncientScript: function (clue) {
+      return delay(1500).then(function () {
+        if (!clue) throw new Error('没有线索可以解码！');
+        return '解码成功！羊皮卷上写着：宝藏藏在沙海尽头的神庙中。';
+      });
+    },
+
+    // 新情节 ③：夜观星象
+    readStarMap: function (location) {
+      return delay(1200).then(function () {
+        if (!location || location.indexOf('神庙') === -1) {
+          throw new Error('星象与羊皮卷对不上，方位无法确定！');
+        }
+        return '星象确认：向东北三百里，穿过迷雾森林即可看见神庙。';
+      });
+    },
+
+    // 新情节 ④：穿越迷雾森林（可能迷路）
+    crossMistForest: function (route, attempt) {
+      return delay(1400).then(function () {
+        var lostChance = attempt === 1 ? 0.62 : 0.12;
+        if (Math.random() < lostChance) {
+          throw new Error('浓雾遮住了去路，你在第 ' + attempt + ' 次尝试中迷路了……');
+        }
+        return '循着萤火虫的微光，你走出了迷雾森林，神庙就在眼前。';
+      });
+    },
+
+    // 新情节 ⑤：点亮圣火（三盏并发）
+    lightTorch: function (name, ms) {
+      return delay(ms).then(function () { return name; });
+    },
+
+    searchTemple: function (location) {
+      return delay(2000).then(function () {
+        if (Math.random() < 0.5) {
+          throw new Error('糟糕！遇到了神庙守卫，他举起了长矛！');
+        }
+        return '找到了一个神秘的箱子，你抱起它悄悄退了出来。';
+      });
+    },
+
+    distractGuard: function () {
+      return delay(900).then(function () {
+        return '你把一块石子扔向远处，守卫循声走开了。';
+      });
+    },
+
+    openTreasureBox: function () {
+      return delay(1000).then(function () {
+        return '恭喜！你找到了传说中的宝藏——一枚会发光的「异步之心」。';
+      });
+    }
+  };
+
+  // ===================================================================
+  // 2. 状态与元素引用
+  // ===================================================================
+  var state = {
+    runId: 0,
+    running: false,
+    speed: 1,
+    heroT: 0,
+    walking: false,
+    camX: 0,
+    step: -1,
+    done: 0,
+    retries: 0,
+    t0: 0
+  };
+
+  var stage = $('#stage');
+  var scene = $('#scene');
+  var camFar = $('#camFar');
+  var camMid = $('#camMid');
+  var camWorld = $('#camWorld');
+  var hero = $('#hero');
+  var heroBody = $('#heroBody');
+  var trailBase = $('#trailBase');
+  var trailDone = $('#trailDone');
+  var nodesLayer = $('#nodes');
+  var fxLayer = $('#fx');
+  var chest = $('#chest');
+  var guardEl = $('#guard');
+  var capIndex = $('#capIndex');
+  var capTitle = $('#capTitle');
+  var capText = $('#capText');
+  var logEl = $('#log');
+  var codeEl = $('#code');
+  var progressFill = $('#progressFill');
+  var statusEl = $('#status');
+  var statusText = $('#statusText');
+  var startBtn = $('#startBtn');
+  var resetBtn = $('#resetBtn');
+  var finale = $('#finale');
+  var finaleText = $('#finaleText');
+  var statTime = $('#statTime');
+  var statRetry = $('#statRetry');
+
+  // ===================================================================
+  // 3. 地图路线：Catmull-Rom 转贝塞尔，保证曲线穿过每个路径点
+  // ===================================================================
+  var WAYPOINTS = [
+    { x: 140, y: 474 }, { x: 300, y: 462 }, { x: 470, y: 474 }, { x: 650, y: 458 },
+    { x: 830, y: 472 }, { x: 1000, y: 462 }, { x: 1180, y: 476 }, { x: 1360, y: 464 },
+    { x: 1520, y: 476 }, { x: 1700, y: 470 }, { x: 1880, y: 478 }, { x: 2050, y: 470 },
+    { x: 2230, y: 474 }
+  ];
+
+  function catmullRom(points) {
+    var d = 'M ' + points[0].x + ' ' + points[0].y;
+    for (var i = 0; i < points.length - 1; i++) {
+      var p0 = points[i - 1] || points[i];
+      var p1 = points[i];
+      var p2 = points[i + 1];
+      var p3 = points[i + 2] || p2;
+      var c1x = p1.x + (p2.x - p0.x) / 6;
+      var c1y = p1.y + (p2.y - p0.y) / 6;
+      var c2x = p2.x - (p3.x - p1.x) / 6;
+      var c2y = p2.y - (p3.y - p1.y) / 6;
+      d += ' C ' + c1x.toFixed(2) + ' ' + c1y.toFixed(2) + ', ' +
+           c2x.toFixed(2) + ' ' + c2y.toFixed(2) + ', ' +
+           p2.x + ' ' + p2.y;
+    }
+    return d;
+  }
+
+  var pathD = catmullRom(WAYPOINTS);
+  trailBase.setAttribute('d', pathD);
+  trailDone.setAttribute('d', pathD);
+
+  var trailTotal = trailBase.getTotalLength();
+  trailDone.style.strokeDasharray = trailTotal;
+  trailDone.style.strokeDashoffset = trailTotal;
+
+  // 找到每个路径点在曲线上的弧长位置
+  function lengthAtPoint(pt) {
+    var best = 0, bestD = Infinity;
+    for (var i = 0; i <= 900; i++) {
+      var l = trailTotal * i / 900;
+      var q = trailBase.getPointAtLength(l);
+      var dd = (q.x - pt.x) * (q.x - pt.x) + (q.y - pt.y) * (q.y - pt.y);
+      if (dd < bestD) { bestD = dd; best = l; }
+    }
+    return best;
+  }
+
+  // ===================================================================
+  // 4. 七个站点
+  // ===================================================================
+  var NODES = [
+    { wp: 0,  label: '图书馆',   code: 0,
+      title: '① 古老的图书馆',
+      hint: '推开积满灰尘的木门，烛光里堆满了发霉的卷轴……',
+      done: '在古老的图书馆里找到了第一个线索：一张残破的羊皮卷。' },
+    { wp: 2,  label: '解码石桌', code: 1,
+      title: '② 解码古文字',
+      hint: '羊皮卷上的符号像虫子在爬，你把它凑近烛火仔细辨认……',
+      done: '解码成功！羊皮卷上写着：宝藏藏在沙海尽头的神庙中。' },
+    { wp: 4,  label: '星象台',   code: 2,
+      title: '③ 夜观星象',
+      hint: '推开圆顶，夜空像一块缀满碎钻的黑绒布，北斗的勺柄正指向东北……',
+      done: '星象确认：向东北三百里，穿过迷雾森林即可看见神庙。' },
+    { wp: 6,  label: '迷雾森林', code: 3,
+      title: '④ 穿越迷雾森林',
+      hint: '雾越来越浓，脚下的路一寸一寸地消失在白色里……',
+      done: '循着萤火虫的微光，你走出了迷雾森林，神庙就在眼前。' },
+    { wp: 9,  label: '神庙之门', code: 4,
+      title: '⑤ 三盏圣火',
+      hint: '石门上刻着三盏灯：日、月、星——必须同时点亮，门才会开。',
+      done: '日、月、星三盏圣火同时亮起，石门轰然开启。' },
+    { wp: 11, label: '神庙深处', code: 5,
+      title: '⑥ 智取守卫',
+      hint: '长廊尽头，一个高大的守卫握着长矛，守在一只箱子旁边……',
+      done: '你借着石柱的阴影绕到守卫身后，抱起了神秘的箱子。' },
+    { wp: 12, label: '宝箱',     code: 6,
+      title: '⑦ 开箱时刻',
+      hint: '箱子上的锁扣已经锈迹斑斑，你深吸了一口气……',
+      done: '恭喜！你找到了传说中的宝藏——一枚会发光的「异步之心」。' }
+  ];
+
+  var nodeLen = NODES.map(function (n) { return lengthAtPoint(WAYPOINTS[n.wp]); });
+  var nodeEls = [];
+
+  // 生成站点标记
+  NODES.forEach(function (n, i) {
+    var pt = WAYPOINTS[n.wp];
+    var g = document.createElementNS(NS, 'g');
+    g.setAttribute('class', 'node');
+    g.setAttribute('transform', 'translate(' + pt.x + ',' + (pt.y - 74) + ')');
+    g.innerHTML =
+      '<circle class="node-ring" r="16"></circle>' +
+      '<text class="node-num" y="0">' + (i + 1) + '</text>' +
+      '<path d="M0,16 l-5,7 l10,0 z" fill="#cdb392" class="node-tail"></path>' +
+      '<rect class="node-label-bg" x="-38" y="100" width="76" height="19" rx="9.5"></rect>' +
+      '<text class="node-label" y="113">' + n.label + '</text>';
+    nodesLayer.appendChild(g);
+    nodeEls.push(g);
+  });
+
+  // ===================================================================
+  // 5. 右侧：日志 + 代码
+  // ===================================================================
+  var CODE = [
+    ['// 寻宝主流程 · async / await 重写版', null],
+    ['async function findTreasure() {', null],
+    ['  // ① 图书馆：拿到第一张羊皮卷', 0],
+    ['  const clue =', 0],
+    ['    await TreasureMap.getInitialClue();', 0],
+    ['', null],
+    ['  // ② 解码古文字，得到神庙坐标', 1],
+    ['  const location =', 1],
+    ['    await TreasureMap.decodeAncientScript(clue);', 1],
+    ['', null],
+    ['  // ③ 新情节：夜观星象，校准方位', 2],
+    ['  const route =', 2],
+    ['    await TreasureMap.readStarMap(location);', 2],
+    ['', null],
+    ['  // ④ 新情节：迷雾森林，迷路则重试', 3],
+    ['  const trail = await withRetry(', 3],
+    ['    () => TreasureMap.crossMistForest(route), 3', 3],
+    ['  );', 3],
+    ['', null],
+    ['  // ⑤ 新情节：三盏圣火同时点亮', 4],
+    ['  const [sun, moon, star] =', 4],
+    ['    await Promise.all([', 4],
+    ["      TreasureMap.lightTorch('日', 800),", 4],
+    ["      TreasureMap.lightTorch('月', 1100),", 4],
+    ["      TreasureMap.lightTorch('星', 1400),", 4],
+    ['    ]);', 4],
+    ['', null],
+    ['  // ⑥ 潜入神庙，躲过守卫取宝箱', 5],
+    ['  const box = await withRetry(', 5],
+    ['    () => TreasureMap.searchTemple(trail), 3', 5],
+    ['  );', 5],
+    ['', null],
+    ['  // ⑦ 开箱！', 6],
+    ['  const treasure =', 6],
+    ['    await TreasureMap.openTreasureBox(box);', 6],
+    ['  return treasure;', 6],
+    ['}', null]
+  ];
+
+  if (codeEl) CODE.forEach(function (row, i) {
+    var div = document.createElement('div');
+    div.className = 'code-line';
+    if (row[1] !== null) div.setAttribute('data-step', row[1]);
+    var text = row[0].replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+    if (text.trim().indexOf('//') === 0) {
+      text = '<span class="cmt">' + text + '</span>';
+    }
+    div.innerHTML = '<span class="ln">' + (i + 1) + '</span><span class="lc">' + (text || ' ') + '</span>';
+    codeEl.appendChild(div);
+  });
+
+  function highlightCode(step) {
+    if (!codeEl) return;
+    var lines = codeEl.querySelectorAll('.code-line');
+    for (var i = 0; i < lines.length; i++) {
+      lines[i].classList.toggle('active', lines[i].getAttribute('data-step') === String(step));
+    }
+    scrollToActive();
+  }
+
+  function scrollToActive() {
+    if (!codeEl) return;
+    var active = codeEl.querySelector('.code-line.active');
+    if (!active) return;
+    var top = active.offsetTop - codeEl.clientHeight / 2 + 40;
+    codeEl.scrollTo({ top: Math.max(0, top), behavior: 'smooth' });
+  }
+
+  function clearLog() { if (logEl) logEl.innerHTML = ''; }
+
+  function log(text, type) {
+    if (!logEl) return;
+    var empty = logEl.querySelector('.log-empty');
+    if (empty) empty.remove();
+    var li = document.createElement('li');
+    li.className = 'log-item ' + (type || 'info');
+    li.innerHTML = '<span class="bullet"></span><span class="txt"></span><span class="ts">' + nowTime() + '</span>';
+    li.querySelector('.txt').textContent = text;
+    logEl.appendChild(li);
+    logEl.scrollTop = logEl.scrollHeight;
+  }
+
+  // ===================================================================
+  // 6. 说明卡片
+  // ===================================================================
+  var typer = null;
+
+  function typeText(el, text) {
+    if (typer) { clearInterval(typer); typer = null; }
+    el.classList.add('typing');
+    el.textContent = '';
+    var i = 0;
+    var step = Math.max(6, 22 / state.speed);
+    typer = setInterval(function () {
+      el.textContent = text.slice(0, ++i);
+      if (i >= text.length) {
+        clearInterval(typer);
+        typer = null;
+        el.classList.remove('typing');
+      }
+    }, step);
+  }
+
+  function setCaption(i) {
+    if (typer) { clearInterval(typer); typer = null; }
+    capIndex.textContent = '第 ' + (i + 1) + ' / 7 站';
+    capTitle.textContent = NODES[i].title;
+    capText.classList.remove('typing');
+    capText.textContent = NODES[i].hint;
+  }
+
+  function setCaptionText(text) { typeText(capText, text); }
+
+  // ===================================================================
+  // 7. 主循环：镜头、角色、粒子
+  // ===================================================================
+  var particles = [];
+  var lastFrame = performance.now();
+  var dustAcc = 0;
+
+  function loop(now) {
+    var dt = Math.min(64, now - lastFrame);
+    lastFrame = now;
+
+    var pt = trailBase.getPointAtLength(state.heroT);
+    var bob = state.walking ? Math.sin(now / 92) * 1.7 : 0;
+    hero.setAttribute('transform', 'translate(' + pt.x.toFixed(2) + ',' + (pt.y + bob).toFixed(2) + ')');
+
+    var target = clamp(pt.x - 460, 0, 1400);
+    state.camX += (target - state.camX) * Math.min(1, dt / 280);
+    camWorld.setAttribute('transform', 'translate(' + (-state.camX).toFixed(2) + ',0)');
+    camMid.setAttribute('transform', 'translate(' + (-state.camX * 0.55).toFixed(2) + ',0)');
+    camFar.setAttribute('transform', 'translate(' + (-state.camX * 0.25).toFixed(2) + ',0)');
+
+    trailDone.style.strokeDashoffset = Math.max(0, trailTotal - state.heroT);
+
+    // 行走扬尘
+    if (state.walking) {
+      dustAcc += dt;
+      if (dustAcc > 90) {
+        dustAcc = 0;
+        spawnParticle(pt.x + (Math.random() * 8 - 4), pt.y, {
+          vx: (Math.random() - 0.5) * 22,
+          vy: -Math.random() * 18 - 4,
+          r: Math.random() * 2 + 1.2,
+          color: '#e0c8a2',
+          max: 520,
+          gravity: -6
+        });
+      }
+    }
+
+    updateParticles(dt);
+    requestAnimationFrame(loop);
+  }
+
+  function spawnParticle(x, y, opt) {
+    var c = document.createElementNS(NS, 'circle');
+    c.setAttribute('cx', x.toFixed(1));
+    c.setAttribute('cy', y.toFixed(1));
+    c.setAttribute('r', opt.r.toFixed(1));
+    c.setAttribute('fill', opt.color);
+    c.setAttribute('opacity', '1');
+    fxLayer.appendChild(c);
+    particles.push({
+      el: c, x: x, y: y,
+      vx: opt.vx, vy: opt.vy,
+      gravity: opt.gravity === undefined ? 320 : opt.gravity,
+      life: 0, max: opt.max || 900, r: opt.r
+    });
+  }
+
+  function burst(x, y, count, colors) {
+    for (var i = 0; i < count; i++) {
+      var angle = Math.random() * Math.PI * 2;
+      var speed = 60 + Math.random() * 220;
+      spawnParticle(x, y, {
+        vx: Math.cos(angle) * speed,
+        vy: Math.sin(angle) * speed - 90,
+        r: Math.random() * 2.8 + 1.4,
+        color: colors[(Math.random() * colors.length) | 0],
+        max: 900 + Math.random() * 700,
+        gravity: 300
+      });
+    }
+  }
+
+  function updateParticles(dt) {
+    var s = dt / 1000;
+    for (var i = particles.length - 1; i >= 0; i--) {
+      var p = particles[i];
+      p.life += dt;
+      p.vy += p.gravity * s;
+      p.x += p.vx * s;
+      p.y += p.vy * s;
+      var k = 1 - p.life / p.max;
+      if (p.life >= p.max || k <= 0) {
+        fxLayer.removeChild(p.el);
+        particles.splice(i, 1);
+        continue;
+      }
+      p.el.setAttribute('cx', p.x.toFixed(1));
+      p.el.setAttribute('cy', p.y.toFixed(1));
+      p.el.setAttribute('opacity', Math.max(0, k).toFixed(2));
+    }
+  }
+
+  // ===================================================================
+  // 8. 异步控制：sleep / walkTo / withRetry
+  // ===================================================================
+  function checkAbort(id) {
+    if (id !== state.runId) throw new AbortError();
+  }
+
+  function delay(ms) {
+    return new Promise(function (resolve) { setTimeout(resolve, ms / state.speed); });
+  }
+
+  function wait(ms) { return delay(ms); }
+
+  function walkTo(index) {
+    var id = state.runId;
+    var from = state.heroT;
+    var to = nodeLen[index];
+    var duration = clamp(Math.abs(to - from) * 2.4 + 260, 420, 1250);
+
+    return new Promise(function (resolve, reject) {
+      var acc = 0;
+      var last = performance.now();
+      state.walking = true;
+
+      function tick(now) {
+        if (id !== state.runId) {
+          state.walking = false;
+          reject(new AbortError());
+          return;
+        }
+        acc += (now - last) * state.speed;
+        last = now;
+        var p = Math.min(1, acc / duration);
+        state.heroT = from + (to - from) * easeInOut(p);
+        if (p < 1) {
+          requestAnimationFrame(tick);
+        } else {
+          state.heroT = to;
+          state.walking = false;
+          resolve();
+        }
+      }
+      requestAnimationFrame(tick);
+    });
+  }
+
+  async function withRetry(task, times, onRetry) {
+    var lastError;
+    for (var attempt = 1; attempt <= times; attempt++) {
+      try {
+        return await task(attempt);
+      } catch (error) {
+        if (error && error.name === 'Abort') throw error;
+        lastError = error;
+        if (onRetry) onRetry(error, attempt);
+        if (attempt === times) break;
+        await wait(450);
+      }
+    }
+    throw lastError;
+  }
+
+  // ===================================================================
+  // 9. 场景控制
+  // ===================================================================
+  function setStatus(text, live) {
+    statusText.textContent = text;
+    statusEl.classList.toggle('live', !!live);
+  }
+
+  function updateProgress() {
+    progressFill.style.width = (state.done / NODES.length * 100) + '%';
+  }
+
+  function setActiveNode(i) {
+    nodeEls.forEach(function (el, k) {
+      el.classList.toggle('is-active', k === i);
+    });
+  }
+
+  function markDone(i) {
+    var el = nodeEls[i];
+    el.classList.remove('is-active');
+    el.classList.add('is-done');
+    el.querySelector('.node-num').textContent = '✓';
+  }
+
+  function shake() {
+    stage.classList.remove('shake');
+    void stage.offsetWidth;
+    stage.classList.add('shake');
+    setTimeout(function () { stage.classList.remove('shake'); }, 500);
+  }
+
+  function resetScene() {
+    state.runId++;
+    state.running = false;
+    state.heroT = 0;
+    state.walking = false;
+    state.camX = 0;
+    state.step = -1;
+    state.done = 0;
+    state.retries = 0;
+
+    particles.forEach(function (p) { fxLayer.removeChild(p.el); });
+    particles = [];
+
+    nodeEls.forEach(function (el, i) {
+      el.classList.remove('is-active', 'is-done');
+      el.querySelector('.node-num').textContent = String(i + 1);
+    });
+
+    trailDone.style.strokeDashoffset = trailTotal;
+
+    for (var i = 0; i < 3; i++) {
+      document.getElementById('torch-' + i).classList.remove('lit');
+    }
+    chest.classList.remove('open');
+    guardEl.classList.remove('alarm');
+
+    if (codeEl) codeEl.querySelectorAll('.code-line').forEach(function (l) { l.classList.remove('active'); });
+
+    capIndex.textContent = '准备出发';
+    capTitle.textContent = '一张泛黄的地图';
+    if (typer) { clearInterval(typer); typer = null; }
+    capText.classList.remove('typing');
+    capText.textContent = '点击下方「开始寻宝」，跟随小探险家踏上这段异步之旅。';
+
+    clearLog();
+
+    updateProgress();
+    setStatus('待命中', false);
+    finale.classList.remove('show');
+    startBtn.disabled = false;
+    startBtn.textContent = '开始寻宝';
+  }
+
+  // ===================================================================
+  // 10. 寻宝主流程（页面的 async / await 版本）
+  // ===================================================================
+  async function findTreasure() {
+    var id = state.runId;
+
+    // ① 图书馆
+    checkAbort(id);
+    state.step = 0;
+    setActiveNode(0);
+    highlightCode(0);
+    setCaption(0);
+    log('▶ ' + NODES[0].title, 'start');
+    await walkTo(0);
+    var clue = await TreasureMap.getInitialClue();
+    checkAbort(id);
+    finishStep(0, clue);
+
+    // ② 解码
+    await goTo(1, id);
+    var location = await TreasureMap.decodeAncientScript(clue);
+    checkAbort(id);
+    finishStep(1, location);
+
+    // ③ 星象
+    await goTo(2, id);
+    var route = await TreasureMap.readStarMap(location);
+    checkAbort(id);
+    finishStep(2, route);
+
+    // ④ 迷雾森林（失败重试）
+    await goTo(3, id);
+    var trail = await withRetry(
+      function (attempt) { return TreasureMap.crossMistForest(route, attempt); },
+      3,
+      function (error, attempt) {
+        state.retries++;
+        log('⚠ 第 ' + attempt + ' 次尝试失败：' + error.message, 'warn');
+        log('  await 被 reject，withRetry 稍后重试…', 'warn');
+        shake();
+      }
+    );
+    checkAbort(id);
+    finishStep(3, trail);
+
+    // ⑤ 三盏圣火（并发）
+    await goTo(4, id);
+    var torchStart = performance.now();
+    var torches = await Promise.all([
+      TreasureMap.lightTorch('日', 800).then(function (n) { lightTorch(0); return n; }),
+      TreasureMap.lightTorch('月', 1100).then(function (n) { lightTorch(1); return n; }),
+      TreasureMap.lightTorch('星', 1400).then(function (n) { lightTorch(2); return n; })
+    ]);
+    checkAbort(id);
+    var torchCost = Math.round(performance.now() - torchStart);
+    log('Promise.all 并发执行，三盏灯分别在 800 / 1100 / 1400ms 点亮', 'info');
+    log('总耗时 ' + torchCost + 'ms —— 等于最慢的那一盏，而不是三者相加', 'ok');
+    finishStep(4, NODES[4].done);
+
+    // ⑥ 智取守卫
+    await goTo(5, id);
+    var box;
+    try {
+      box = await withRetry(
+        function () { return TreasureMap.searchTemple(trail); },
+        3,
+        function (error, attempt) {
+          state.retries++;
+          log('⚠ 第 ' + attempt + ' 次潜入失败：' + error.message, 'warn');
+          guardEl.classList.remove('alarm');
+          void guardEl.offsetWidth;
+          guardEl.classList.add('alarm');
+          shake();
+        }
+      );
+    } catch (error) {
+      if (error && error.name === 'Abort') throw error;
+      log('强攻失败，改用「声东击西」降级方案', 'warn');
+      box = await TreasureMap.distractGuard();
+      checkAbort(id);
+    }
+    finishStep(5, box);
+
+    // ⑦ 开箱
+    await goTo(6, id);
+    var treasure = await TreasureMap.openTreasureBox();
+    checkAbort(id);
+    finishStep(6, treasure);
+
+    // 结算
+    finishRun(treasure);
+  }
+
+  async function goTo(i, id) {
+    checkAbort(id);
+    state.step = i;
+    setActiveNode(i);
+    highlightCode(NODES[i].code);
+    setCaption(i);
+    log('▶ ' + NODES[i].title, 'start');
+    await walkTo(i);
+    checkAbort(id);
+  }
+
+  function lightTorch(k) {
+    var el = document.getElementById('torch-' + k);
+    if (el) el.classList.add('lit');
+  }
+
+  function finishStep(i, text) {
+    markDone(i);
+    setCaptionText(text);
+    log(text, 'ok');
+    state.done++;
+    updateProgress();
+    burst(WAYPOINTS[NODES[i].wp].x, WAYPOINTS[NODES[i].wp].y - 30, 10, ['#f0b95a', '#e88b4a', '#f7d98a']);
+
+    if (i === 6) {
+      chest.classList.add('open');
+      burst(2270, 430, 60, ['#f7c948', '#ffe9a3', '#e59b2f', '#fff6d8']);
+      setTimeout(function () { burst(2270, 420, 40, ['#f7c948', '#ffd166']); }, 350);
+    }
+  }
+
+  function finishRun(treasure) {
+    state.running = false;
+    setStatus('寻宝完成', false);
+    var seconds = ((performance.now() - state.t0) / 1000).toFixed(1);
+    finaleText.textContent = treasure;
+    statTime.textContent = seconds + 's';
+    statRetry.textContent = state.retries + ' 次';
+    setTimeout(function () { finale.classList.add('show'); }, 650);
+    startBtn.disabled = false;
+    startBtn.textContent = '重新寻宝';
+    log('✨ 全部 await 完成，async 函数返回：' + treasure, 'ok');
+  }
+
+  // ===================================================================
+  // 11. 启动 / 事件绑定
+  // ===================================================================
+  function startRun() {
+    if (state.running) return;
+    resetScene();
+    state.running = true;
+    state.t0 = performance.now();
+    setStatus('寻宝中', true);
+    startBtn.disabled = true;
+    startBtn.textContent = '寻宝中…';
+    log('async findTreasure() 开始执行', 'start');
+
+    findTreasure().catch(function (error) {
+      if (error && error.name === 'Abort') return;
+      console.error(error);
+      log('✗ 任务中断：' + error.message, 'err');
+      setStatus('已中断', false);
+      state.running = false;
+      startBtn.disabled = false;
+      startBtn.textContent = '重新寻宝';
+    });
+  }
+
+  startBtn.addEventListener('click', startRun);
+  $('#againBtn').addEventListener('click', startRun);
+  if (resetBtn) resetBtn.addEventListener('click', function () {
+    resetScene();
+  });
+
+  var speedSeg = $('#speedSeg');
+  if (speedSeg) speedSeg.addEventListener('click', function (e) {
+    var btn = e.target.closest('button');
+    if (!btn) return;
+    state.speed = Number(btn.dataset.speed);
+    Array.prototype.forEach.call(this.children, function (b) {
+      b.classList.toggle('on', b === btn);
+    });
+  });
+
+  document.querySelectorAll('.tab').forEach(function (tab) {
+    tab.addEventListener('click', function () {
+      document.querySelectorAll('.tab').forEach(function (t) { t.classList.remove('on'); });
+      tab.classList.add('on');
+      document.querySelectorAll('.pane').forEach(function (p) { p.classList.remove('on'); });
+      document.getElementById('pane-' + tab.dataset.tab).classList.add('on');
+      if (tab.dataset.tab === 'code') {
+        setTimeout(scrollToActive, 30);
+      }
+    });
+  });
+
+  // 初始化
+  updateProgress();
+  requestAnimationFrame(function (t) { lastFrame = t; loop(t); });
+})();
+</script>
+</body>
+</html>
